@@ -1,10 +1,10 @@
-import { changePasswordSchema, loginSchema, redeemInviteSchema } from '@cfj/shared';
+import { loginSchema, redeemInviteSchema } from '@cfj/shared';
 import { Router } from 'express';
 
-import { loginRateLimiter, requireAuth } from '../auth/middleware.js';
+import { loginRateLimiter } from '../auth/middleware.js';
 import { fakeVerify, verifyPassword } from '../auth/password.js';
-import { destroyAllSessions, destroySession, issueSession } from '../auth/session.js';
-import { redeemInvite, setPassword, toUserDto } from '../auth/users.js';
+import { destroySession, issueSession } from '../auth/session.js';
+import { redeemInvite, toUserDto } from '../auth/users.js';
 import { prisma } from '../lib/db.js';
 import { ApiError } from '../lib/errors.js';
 import { asyncHandler, parseBody } from '../lib/http.js';
@@ -64,27 +64,5 @@ authRouter.post(
     const user = await redeemInvite(input);
     const expiresAt = await issueSession(res, req, user.id);
     res.status(201).json({ user: toUserDto(user), expiresAt: expiresAt.toISOString() });
-  }),
-);
-
-authRouter.post(
-  '/auth/password',
-  requireAuth,
-  asyncHandler(async (req, res) => {
-    const { currentPassword, newPassword } = parseBody(changePasswordSchema, req.body);
-    const user = await prisma.user.findUnique({ where: { id: req.user!.id } });
-    if (!user) throw ApiError.unauthorized();
-
-    if (!(await verifyPassword(currentPassword, user.passwordHash))) {
-      throw ApiError.badRequest('Current password is incorrect', {
-        currentPassword: ['Current password is incorrect'],
-      });
-    }
-
-    await setPassword(user.id, newPassword);
-    // Everything else is signed out, then this device is signed back in.
-    await destroyAllSessions(user.id);
-    await issueSession(res, req, user.id);
-    res.json({ ok: true });
   }),
 );

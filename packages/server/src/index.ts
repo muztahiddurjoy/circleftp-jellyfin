@@ -5,10 +5,12 @@ import { startDownloadQueue, downloadQueue } from './downloads/queue.js';
 import { configureSqlite, disconnect } from './lib/db.js';
 import { closeDispatchers } from './lib/httpClient.js';
 import { logger } from './lib/logger.js';
+import { pruneExpiredResets } from './auth/passwordReset.js';
 import { pruneExpiredSessions } from './auth/session.js';
 
 await configureSqlite();
 await pruneExpiredSessions();
+await pruneExpiredResets();
 await startDownloadQueue();
 
 const app = createApp();

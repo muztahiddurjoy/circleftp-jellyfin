@@ -11,6 +11,8 @@ import { apiRateLimiter, attachUser, requireSameOrigin } from './auth/middleware
 import { env, hasWebDist, isTest } from './env.js';
 import { errorHandler, notFoundHandler } from './lib/http.js';
 import { logger } from './lib/logger.js';
+import { accountRouter } from './routes/account.js';
+import { adminRouter } from './routes/admin.js';
 import { authRouter } from './routes/auth.js';
 import { downloadsRouter } from './routes/downloads.js';
 import { eventsRouter } from './routes/events.js';
@@ -79,6 +81,8 @@ export function createApp(): Express {
 
   app.use('/api', healthRouter);
   app.use('/api', apiRateLimiter, requireSameOrigin, attachUser, authRouter);
+  app.use('/api', apiRateLimiter, requireSameOrigin, attachUser, accountRouter);
+  app.use('/api', apiRateLimiter, requireSameOrigin, attachUser, adminRouter);
   app.use('/api', apiRateLimiter, requireSameOrigin, attachUser, libraryRouter);
   app.use('/api', apiRateLimiter, requireSameOrigin, attachUser, downloadsRouter);
   // The SSE stream is exempt from the request rate limiter: one long-lived
