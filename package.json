@@ -1,0 +1,32 @@
+{
+  "name": "circleftp-jellyfin",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Web app that proxies Circle FTP and downloads titles straight into a Jellyfin library",
+  "license": "MIT",
+  "workspaces": [
+    "packages/shared",
+    "packages/server",
+    "packages/web"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "npm run build -w @cfj/shared && npm run build -w @cfj/server && npm run build -w @cfj/web",
+    "dev": "concurrently -n server,web -c cyan,magenta \"npm run dev -w @cfj/server\" \"npm run dev -w @cfj/web\"",
+    "test": "npm run test -ws --if-present",
+    "typecheck": "npm run typecheck -ws --if-present",
+    "lint": "eslint .",
+    "format": "prettier --write .",
+    "db:migrate": "npm run db:migrate -w @cfj/server",
+    "db:studio": "npm run db:studio -w @cfj/server",
+    "user:create": "npm run user:create -w @cfj/server",
+    "start": "npm run start -w @cfj/server"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2",
+    "prettier": "^3.4.2",
+    "typescript": "^5.7.3"
+  }
+}

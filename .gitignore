@@ -1,0 +1,30 @@
+node_modules/
+dist/
+build/
+*.tsbuildinfo
+
+# env
+.env
+.env.local
+.env.*.local
+
+# prisma / sqlite
+*.db
+*.db-journal
+*.db-shm
+*.db-wal
+packages/server/prisma/dev.db*
+
+# runtime data
+var/
+cache/
+logs/
+*.log
+
+# editors / os
+.DS_Store
+.vscode/
+.idea/
+
+# test output
+coverage/
