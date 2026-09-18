@@ -18,3 +18,8 @@ export function toBigInt(value: number | null | undefined): bigint | null {
   if (value === null || value === undefined || !Number.isFinite(value)) return null;
   return BigInt(Math.max(0, Math.round(value)));
 }
+
+/** Same as `toBigInt`, but for non-nullable columns like `downloadedBytes`. */
+export function toBigIntOrZero(value: number | null | undefined): bigint {
+  return toBigInt(value) ?? BigInt(0);
+}

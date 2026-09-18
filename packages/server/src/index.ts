@@ -1,10 +1,15 @@
 /** Process entry point: start the HTTP server and shut down cleanly. */
 import { createApp } from './app.js';
 import { env } from './env.js';
+import { startDownloadQueue, downloadQueue } from './downloads/queue.js';
 import { configureSqlite, disconnect } from './lib/db.js';
+import { closeDispatchers } from './lib/httpClient.js';
 import { logger } from './lib/logger.js';
+import { pruneExpiredSessions } from './auth/session.js';
 
 await configureSqlite();
+await pruneExpiredSessions();
+await startDownloadQueue();
 
 const app = createApp();
 
@@ -23,8 +28,12 @@ async function shutdown(signal: string): Promise<void> {
   shuttingDown = true;
   logger.info({ signal }, 'Shutting down');
 
+  // Abort in-flight transfers. Their .part files stay on disk, so the requeue
+  // on next boot resumes rather than starting over.
+  downloadQueue.shutdown();
+
   server.close(() => {
-    void disconnect().finally(() => {
+    void Promise.allSettled([disconnect(), closeDispatchers()]).finally(() => {
       logger.info('HTTP server closed');
       process.exit(0);
     });

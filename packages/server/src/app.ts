@@ -12,6 +12,8 @@ import { env, hasWebDist, isTest } from './env.js';
 import { errorHandler, notFoundHandler } from './lib/http.js';
 import { logger } from './lib/logger.js';
 import { authRouter } from './routes/auth.js';
+import { downloadsRouter } from './routes/downloads.js';
+import { eventsRouter } from './routes/events.js';
 import { healthRouter } from './routes/health.js';
 import { libraryRouter } from './routes/library.js';
 
@@ -24,7 +26,21 @@ export function createApp(): Express {
   app.disable('x-powered-by');
 
   if (!isTest) {
-    app.use(pinoHttp({ logger, autoLogging: { ignore: (req: { url?: string }) => req.url === '/api/health' } }));
+    app.use(
+      pinoHttp({
+        logger,
+        autoLogging: { ignore: (req: { url?: string }) => req.url === '/api/health' },
+        // The defaults log every request and response header, which buries the
+        // journal in CSP and rate-limit boilerplate. One line each is enough.
+        serializers: {
+          req: (req: { method?: string; url?: string }) => ({
+            method: req.method,
+            url: req.url,
+          }),
+          res: (res: { statusCode?: number }) => ({ status: res.statusCode }),
+        },
+      }),
+    );
   }
 
   app.use(
@@ -56,6 +72,10 @@ export function createApp(): Express {
   app.use('/api', healthRouter);
   app.use('/api', apiRateLimiter, requireSameOrigin, attachUser, authRouter);
   app.use('/api', apiRateLimiter, requireSameOrigin, attachUser, libraryRouter);
+  app.use('/api', apiRateLimiter, requireSameOrigin, attachUser, downloadsRouter);
+  // The SSE stream is exempt from the request rate limiter: one long-lived
+  // connection per tab, not a stream of requests.
+  app.use('/api', requireSameOrigin, attachUser, eventsRouter);
 
   if (hasWebDist()) {
     // Hashed asset filenames can be cached hard; index.html must not be.
