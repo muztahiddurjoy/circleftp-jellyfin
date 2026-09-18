@@ -57,6 +57,14 @@ export function createApp(): Express {
           fontSrc: ["'self'", 'data:'],
           objectSrc: ["'none'"],
           frameAncestors: ["'none'"],
+          // Helmet sets this by default, and on a page served over plain HTTP
+          // it is fatal: the browser rewrites every same-origin subresource to
+          // https://, so the JS and CSS are requested on a port with no TLS
+          // listener and the app renders as a blank page. Reaching this over
+          // http:// on Tailscale is a supported route, so it has to go. Nothing
+          // is lost behind the Cloudflare tunnel either — every subresource is
+          // same-origin and inherits the page's scheme.
+          upgradeInsecureRequests: null,
         },
       },
       // Off: the app is served over plain HTTP on Tailscale as well as HTTPS
