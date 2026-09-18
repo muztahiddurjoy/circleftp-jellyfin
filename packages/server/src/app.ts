@@ -7,9 +7,11 @@ import express, { type Express } from 'express';
 import helmet from 'helmet';
 import { pinoHttp } from 'pino-http';
 
+import { apiRateLimiter, attachUser, requireSameOrigin } from './auth/middleware.js';
 import { env, hasWebDist, isTest } from './env.js';
 import { errorHandler, notFoundHandler } from './lib/http.js';
 import { logger } from './lib/logger.js';
+import { authRouter } from './routes/auth.js';
 import { healthRouter } from './routes/health.js';
 
 export function createApp(): Express {
@@ -51,6 +53,7 @@ export function createApp(): Express {
   app.use(cookieParser(env.SESSION_SECRET));
 
   app.use('/api', healthRouter);
+  app.use('/api', apiRateLimiter, requireSameOrigin, attachUser, authRouter);
 
   if (hasWebDist()) {
     // Hashed asset filenames can be cached hard; index.html must not be.
