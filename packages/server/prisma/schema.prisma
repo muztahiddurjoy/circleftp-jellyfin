@@ -1,0 +1,137 @@
+// SQLite is a deliberate fit here: one writer (this process), a handful of
+// users, and jobs measured in dozens. It keeps deployment to a single file.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  name         String
+  passwordHash String
+  // "ADMIN" | "USER" — SQLite has no native enums, and the union lives in
+  // @cfj/shared so both sides agree on the allowed values.
+  role         String   @default("USER")
+  disabled     Boolean  @default(false)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  sessions       Session[]
+  downloads      Download[]
+  invitesCreated Invite[]   @relation("InviteCreatedBy")
+  inviteUsed     Invite?    @relation("InviteUsedBy")
+
+  @@map("users")
+}
+
+model Session {
+  id String @id @default(cuid())
+
+  // Only the hash is stored: a stolen database must not yield usable cookies.
+  tokenHash String   @unique
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userAgent String?
+  ip        String?
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([expiresAt])
+  @@map("sessions")
+}
+
+model Invite {
+  id           String    @id @default(cuid())
+  code         String    @unique
+  role         String    @default("USER")
+  note         String?
+  expiresAt    DateTime
+  createdAt    DateTime  @default(now())
+  createdById  String?
+  createdBy    User?     @relation("InviteCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  // Set once the invite is redeemed; unique so one code makes one account.
+  usedById     String?   @unique
+  usedBy       User?     @relation("InviteUsedBy", fields: [usedById], references: [id], onDelete: SetNull)
+  usedAt       DateTime?
+
+  @@index([expiresAt])
+  @@map("invites")
+}
+
+model Download {
+  id String @id @default(cuid())
+
+  // Circle FTP post id. Not unique: a title may legitimately be fetched again
+  // after a failure or deletion; only *active* duplicates are rejected.
+  postId      Int
+  title       String
+  // Destination folder name, e.g. "Inception (2010)".
+  folderName  String
+  // "movie" | "series" | "file"
+  kind        String  @default("movie")
+  // Circle FTP image filename; the client requests it through our proxy.
+  posterImage String?
+
+  // "QUEUED" | "RUNNING" | "COMPLETED" | "PARTIAL" | "FAILED" | "CANCELLED"
+  status          String  @default("QUEUED")
+  // Null until every file has been probed successfully.
+  totalBytes      BigInt?
+  downloadedBytes BigInt  @default(0)
+  error           String?
+  // JSON array of the season names the user picked; empty means all.
+  seasonsJson     String  @default("[]")
+  // Set when the user asks to stop; the worker checks it between chunks.
+  cancelRequested Boolean @default(false)
+
+  userId String?
+  user   User?   @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  files DownloadFile[]
+
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+  startedAt  DateTime?
+  finishedAt DateTime?
+
+  @@index([status])
+  @@index([postId])
+  @@index([createdAt])
+  @@map("downloads")
+}
+
+model DownloadFile {
+  id         String   @id @default(cuid())
+  downloadId String
+  download   Download @relation(fields: [downloadId], references: [id], onDelete: Cascade)
+
+  // Position in the job, so episodes download in order.
+  order   Int
+  url     String
+  // Path relative to the job folder, e.g. "Season 01/Show S01E02 - name.mkv".
+  relPath String
+  label   String
+  season  String?
+  episode Int?
+
+  // "PENDING" | "RUNNING" | "COMPLETED" | "FAILED" | "SKIPPED" | "CANCELLED"
+  status          String  @default("PENDING")
+  sizeBytes       BigInt?
+  downloadedBytes BigInt  @default(0)
+  attempts        Int     @default(0)
+  error           String?
+
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+  finishedAt DateTime?
+
+  @@index([downloadId, order])
+  @@index([status])
+  @@map("download_files")
+}

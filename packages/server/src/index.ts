@@ -1,7 +1,10 @@
 /** Process entry point: start the HTTP server and shut down cleanly. */
 import { createApp } from './app.js';
 import { env } from './env.js';
+import { configureSqlite, disconnect } from './lib/db.js';
 import { logger } from './lib/logger.js';
+
+await configureSqlite();
 
 const app = createApp();
 
@@ -21,8 +24,10 @@ async function shutdown(signal: string): Promise<void> {
   logger.info({ signal }, 'Shutting down');
 
   server.close(() => {
-    logger.info('HTTP server closed');
-    process.exit(0);
+    void disconnect().finally(() => {
+      logger.info('HTTP server closed');
+      process.exit(0);
+    });
   });
 
   // Don't let a stuck connection hold the restart hostage.
