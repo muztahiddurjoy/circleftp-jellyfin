@@ -120,19 +120,56 @@ Without it downloads still land on disk — only the Nextcloud index goes stale.
 
 ## Deployment
 
+### Option A — pm2 (no root needed)
+
+```bash
+npm run build
+bash deploy/setup-pm2.sh
+```
+
+Starts the app under pm2 and installs a systemd **user** unit that runs `pm2 resurrect` at boot,
+so nothing here touches root. pm2's own `pm2 startup` is deliberately *not* used — it writes a
+system unit and needs sudo.
+
+One caveat: a user unit only survives logout and reboot if the account lingers. The script checks
+and tells you if it does not; enabling it is the single command that needs root:
+
+```bash
+sudo loginctl enable-linger $USER
+```
+
+Day to day:
+
+```bash
+pm2 status
+pm2 logs circleftp-jellyfin
+pm2 restart circleftp-jellyfin
+git pull && npm install && npm run build && pm2 restart circleftp-jellyfin
+```
+
+The app runs as **one fork-mode instance, never clustered** — the download queue is an in-process
+singleton and SSE subscribers live in that same process, so a second worker would race the first
+for queued jobs and only push progress to the browsers connected to itself.
+
+### Option B — a plain systemd system service
+
 ```bash
 npm run build
 sudo bash deploy/setup-root.sh
 ```
 
-That installs and starts the systemd unit, and optionally an nginx vhost. Set `PUBLIC_HOST` to
-change the hostname, or `INSTALL_NGINX=no` to skip nginx.
+That installs and starts a system unit, and optionally an nginx vhost. Set `PUBLIC_HOST` to
+change the hostname, or `INSTALL_NGINX=no` to skip nginx. Use this instead of Option A, not as
+well — two supervisors would fight over the port.
 
 Two notes learned the hard way on the reference host:
 
-- The unit runs Node through `sg www-data` rather than using `SupplementaryGroups=`. The media
-  directory is www-data-owned; if the user's membership of that group was granted *after* the
-  login session began, a service can inherit a group set without it and be unable to write.
+- The system unit runs Node through `sg www-data` rather than using `SupplementaryGroups=`. The
+  media directory is www-data-owned; if the account's membership of that group was granted
+  *after* the login session began, a service inherits a group set without it and cannot write.
+  The same trap applies to the pm2 route, where the group set comes from the `systemd --user`
+  manager and is fixed at login — `deploy/setup-pm2.sh` checks that manager's actual groups and
+  refuses to continue if the gid is missing, since downloads would otherwise fail with EACCES.
 - Behind a Cloudflare Tunnel, keep the ingress rule on plain HTTP (`http://localhost:7070`) and
   let nginx serve the hostname without TLS. The DNS record must be **proxied** (orange cloud) —
   a grey-clouded `CNAME → <id>.cfargotunnel.com` has no public IP and just fails to connect.
