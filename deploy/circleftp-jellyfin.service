@@ -1,0 +1,46 @@
+[Unit]
+Description=circleftp-jellyfin — Circle FTP browser that downloads into the Jellyfin library
+Documentation=https://github.com/muztahiddurjoy/circleftp-jellyfin
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=muz-server
+Group=muz-server
+
+WorkingDirectory=/home/muz-server/circleftp-jellyfin/packages/server
+EnvironmentFile=/home/muz-server/circleftp-jellyfin/packages/server/.env
+
+# Why `sg www-data` and not SupplementaryGroups=www-data:
+#
+# The media directory is www-data-owned and 2775. This user IS a member of
+# www-data, but that membership was granted after the login session's group set
+# was established, so a process can inherit a group set without gid 33 and be
+# unable to write there. `sg` re-resolves the group list at exec time, which
+# works both now and after a reboot. This is the same fix the Hermes circleftp
+# plugin needed, and it cost real debugging time to find the first time.
+ExecStart=/usr/bin/sg www-data -c '/usr/bin/node /home/muz-server/circleftp-jellyfin/packages/server/dist/index.js'
+
+Restart=on-failure
+RestartSec=5
+# In-flight downloads are aborted on stop; their .part files stay on disk and
+# the queue resumes from them on the next start.
+KillSignal=SIGTERM
+TimeoutStopSec=30
+
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=circleftp-jellyfin
+
+# Hardening. Note ProtectHome and a strict ReadWritePaths are NOT usable here:
+# the app lives under /home/muz-server and writes into /var/nextcloud-data.
+NoNewPrivileges=false
+PrivateTmp=true
+ProtectSystem=full
+ProtectKernelTunables=true
+ProtectControlGroups=true
+RestrictSUIDSGID=false
+
+[Install]
+WantedBy=multi-user.target
