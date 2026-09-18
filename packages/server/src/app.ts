@@ -13,6 +13,7 @@ import { errorHandler, notFoundHandler } from './lib/http.js';
 import { logger } from './lib/logger.js';
 import { authRouter } from './routes/auth.js';
 import { healthRouter } from './routes/health.js';
+import { libraryRouter } from './routes/library.js';
 
 export function createApp(): Express {
   const app = express();
@@ -54,6 +55,7 @@ export function createApp(): Express {
 
   app.use('/api', healthRouter);
   app.use('/api', apiRateLimiter, requireSameOrigin, attachUser, authRouter);
+  app.use('/api', apiRateLimiter, requireSameOrigin, attachUser, libraryRouter);
 
   if (hasWebDist()) {
     // Hashed asset filenames can be cached hard; index.html must not be.
