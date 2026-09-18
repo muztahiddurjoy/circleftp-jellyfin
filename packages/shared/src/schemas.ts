@@ -118,6 +118,47 @@ export const createInviteSchema = z.object({
 });
 export type CreateInviteInput = z.infer<typeof createInviteSchema>;
 
+/** Admin creating an account directly, without going through an invite. */
+export const adminCreateUserSchema = z.object({
+  name: z.string().trim().min(1).max(80),
+  email: emailSchema,
+  role: z.enum(['ADMIN', 'USER']).default('USER'),
+  /** Omit to have the server generate one and return it once. */
+  password: passwordSchema.optional(),
+});
+export type AdminCreateUserInput = z.infer<typeof adminCreateUserSchema>;
+
+/** Every field is optional; only what is sent gets changed. */
+export const updateUserSchema = z
+  .object({
+    name: z.string().trim().min(1).max(80).optional(),
+    role: z.enum(['ADMIN', 'USER']).optional(),
+    disabled: z.boolean().optional(),
+  })
+  .refine((value) => Object.keys(value).length > 0, {
+    message: 'Nothing to change',
+  });
+export type UpdateUserInput = z.infer<typeof updateUserSchema>;
+
+export const createPasswordResetSchema = z.object({
+  /** Hours the generated link stays valid. */
+  expiresInHours: z.coerce.number().int().min(1).max(168).default(24),
+});
+export type CreatePasswordResetInput = z.infer<typeof createPasswordResetSchema>;
+
+/** Redeeming a reset link. Unauthenticated — the token is the credential. */
+export const redeemPasswordResetSchema = z.object({
+  token: z.string().trim().min(16).max(200),
+  newPassword: passwordSchema,
+});
+export type RedeemPasswordResetInput = z.infer<typeof redeemPasswordResetSchema>;
+
+/** Changing your own display name. */
+export const updateProfileSchema = z.object({
+  name: z.string().trim().min(1).max(80),
+});
+export type UpdateProfileInput = z.infer<typeof updateProfileSchema>;
+
 /* -------------------------------------------------------------------------- */
 
 /** Query params arrive as `?seasons=1&seasons=2` or `?seasons=1`; normalise both. */

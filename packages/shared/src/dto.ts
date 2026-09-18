@@ -157,3 +157,57 @@ export interface ApiErrorDto {
     details?: Record<string, string[]>;
   };
 }
+
+/* -------------------------------------------------------------------------- */
+/* Administration                                                             */
+/* -------------------------------------------------------------------------- */
+
+/** A user as the admin table shows them — more than `UserDto` carries. */
+export interface AdminUserDto extends UserDto {
+  disabled: boolean;
+  /** How many downloads they have requested, for context before deleting. */
+  downloadCount: number;
+  /** Open sessions, so an admin can see who is actually signed in. */
+  sessionCount: number;
+  lastSeenAt: string | null;
+  /** True for the account making the request — the UI disables self-harm. */
+  isSelf: boolean;
+}
+
+export interface InviteDto {
+  id: string;
+  code: string;
+  role: UserRole;
+  note: string | null;
+  expiresAt: string;
+  createdAt: string;
+  createdByName: string | null;
+  /** Set once redeemed; the invite is then spent. */
+  usedByName: string | null;
+  usedAt: string | null;
+  /** Derived for convenience: 'pending' | 'used' | 'expired'. */
+  status: 'pending' | 'used' | 'expired';
+}
+
+/**
+ * A freshly issued reset link.
+ *
+ * The token is returned exactly once, at creation — only its hash is stored —
+ * so the UI must show it immediately and tell the admin to copy it.
+ */
+export interface PasswordResetDto {
+  id: string;
+  userId: string;
+  userName: string;
+  userEmail: string;
+  /** Full path to hand the user, e.g. "/reset?token=…". */
+  url: string;
+  expiresAt: string;
+}
+
+/** Returned when an admin creates an account with a generated password. */
+export interface CreatedUserDto {
+  user: AdminUserDto;
+  /** Present only when the server generated the password. Shown once. */
+  generatedPassword: string | null;
+}
