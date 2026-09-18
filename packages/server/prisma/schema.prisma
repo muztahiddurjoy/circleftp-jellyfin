@@ -24,8 +24,10 @@ model User {
 
   sessions       Session[]
   downloads      Download[]
-  invitesCreated Invite[]   @relation("InviteCreatedBy")
-  inviteUsed     Invite?    @relation("InviteUsedBy")
+  invitesCreated Invite[]        @relation("InviteCreatedBy")
+  inviteUsed     Invite?         @relation("InviteUsedBy")
+  passwordResets PasswordReset[] @relation("ResetForUser")
+  resetsIssued   PasswordReset[] @relation("ResetIssuedBy")
 
   @@map("users")
 }
@@ -63,6 +65,32 @@ model Invite {
 
   @@index([expiresAt])
   @@map("invites")
+}
+
+/// A one-time password reset link, issued by an administrator.
+///
+/// There is no mail server here, so a reset cannot be emailed to the user.
+/// Instead an admin generates a link and passes it on however they like; the
+/// user sets their own password with it, so the admin never learns it.
+model PasswordReset {
+  id String @id @default(cuid())
+
+  // As with sessions, only a hash of the token is stored — a stolen database
+  // must not yield working reset links.
+  tokenHash String    @unique
+  userId    String
+  user      User      @relation("ResetForUser", fields: [userId], references: [id], onDelete: Cascade)
+
+  issuedById String?
+  issuedBy   User?    @relation("ResetIssuedBy", fields: [issuedById], references: [id], onDelete: SetNull)
+
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId])
+  @@index([expiresAt])
+  @@map("password_resets")
 }
 
 model Download {
