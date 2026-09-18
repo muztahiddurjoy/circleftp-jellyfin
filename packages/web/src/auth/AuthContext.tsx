@@ -19,6 +19,10 @@ interface AuthState {
   login: (email: string, password: string) => Promise<void>;
   redeem: (input: { code: string; name: string; email: string; password: string }) => Promise<void>;
   logout: () => Promise<void>;
+  /** Re-read the signed-in user, after editing a profile elsewhere. */
+  refreshUser: () => Promise<void>;
+  /** Adopt a user the server just returned, e.g. after redeeming a reset link. */
+  setUser: (user: UserDto) => void;
 }
 
 const AuthContext = createContext<AuthState | null>(null);
@@ -62,6 +66,16 @@ export function AuthProvider({ children }: { children: ReactNode }): JSX.Element
     [],
   );
 
+  const refreshUser = useCallback(async () => {
+    try {
+      const result = await api.get<{ user: UserDto }>('/auth/me');
+      setUser(result.user);
+    } catch (error) {
+      // A 401 here means the session ended underneath us; reflect that.
+      if (error instanceof ApiRequestError && error.isUnauthenticated) setUser(null);
+    }
+  }, []);
+
   const logout = useCallback(async () => {
     try {
       await api.post('/auth/logout');
@@ -74,8 +88,8 @@ export function AuthProvider({ children }: { children: ReactNode }): JSX.Element
   }, []);
 
   const value = useMemo<AuthState>(
-    () => ({ user, loading, login, redeem, logout }),
-    [user, loading, login, redeem, logout],
+    () => ({ user, loading, login, redeem, logout, refreshUser, setUser }),
+    [user, loading, login, redeem, logout, refreshUser],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
