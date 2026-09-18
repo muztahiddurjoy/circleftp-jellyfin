@@ -36,6 +36,8 @@ rescan when the job finishes.
 - **Automatic reindexing.** `occ files:scan` for Nextcloud and `/Library/Refresh` for Jellyfin,
   both optional and both best-effort.
 - **Invite-only.** No public sign-up. The first account is created from the CLI.
+- **User management in the browser.** Add or remove accounts, promote and demote, disable, revoke
+  sessions, and issue password reset links — see below.
 
 ## Stack
 
@@ -135,6 +137,47 @@ Two notes learned the hard way on the reference host:
   let nginx serve the hostname without TLS. The DNS record must be **proxied** (orange cloud) —
   a grey-clouded `CNAME → <id>.cfargotunnel.com` has no public IP and just fails to connect.
 
+## Accounts and user management
+
+### Your own account — `/account`
+
+Change your display name, change your password, and see every device signed in as you with a
+"sign out other devices" button. Changing your password signs out every other session and keeps
+the one you changed it from.
+
+### Administration — `/admin`
+
+Visible only to administrators.
+
+**Users.** Add an account (a strong password is generated and shown once), promote or demote,
+disable or re-enable, sign an account out everywhere, issue a password reset link, or delete.
+Deleting keeps the account's download history, detached from the account.
+
+**Invites.** Create a code with a role, an expiry and a private note, share the link, and revoke
+unused ones. A redeemed invite is kept as the record of how that account came to exist, so it
+cannot be revoked away.
+
+### Password resets
+
+There is no mail server on the reference host, so there is no self-service "forgot password" by
+email. Instead an administrator presses **Reset password** on a user's row and gets a one-time
+link to pass on. The user opens it, chooses their own password, and is signed straight in — so
+**the administrator never learns the password**. Links are single-use, expire (24 hours by
+default), are invalidated if a newer one is issued, and sign every device out when redeemed.
+
+A user who can still sign in should just use `/account` instead.
+
+### Lock-out protection
+
+There is no email recovery and no rescue console here, so the API refuses anything that would
+leave nobody able to administer the app:
+
+- the last *active* administrator cannot be demoted, disabled or deleted — and a **disabled**
+  administrator does not count as cover, since it cannot sign in;
+- you cannot disable or delete your own account.
+
+The UI greys these actions out with an explanation rather than waiting for the server to say no.
+
 ## Admin CLI
 
 ```bash
@@ -144,7 +187,8 @@ npm run user:list
 npm run invite:create -- --days 14           # prints a code; redeem it at /invite
 ```
 
-Omitting `--password` generates a strong one and prints it once.
+Omitting `--password` generates a strong one and prints it once. The CLI is the way to create the
+*first* account; after that, `/admin` does the same things in the browser.
 
 ## How it works
 
@@ -172,6 +216,10 @@ pinning the behaviour — these functions decide real paths on disk that Jellyfi
   cross-origin request cannot pass the preflight.
 - Every download path is derived from untrusted upstream data, so `..` segments are dropped and
   the resolved path is proved to be inside `MEDIA_ROOT` before anything is written.
+- Reset tokens are stored as SHA-256 like sessions, are single-use, and redemption runs in a
+  transaction with a conditional claim so two requests on one link cannot both succeed.
+- Changing a password or redeeming a reset revokes every other session for that account, and
+  disabling an account revokes its sessions immediately rather than waiting for them to expire.
 
 ## Licence
 
