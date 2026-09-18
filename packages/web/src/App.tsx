@@ -3,10 +3,13 @@ import { Navigate, NavLink, Outlet, Route, Routes, useLocation } from 'react-rou
 import { useAuth } from './auth/AuthContext';
 import { EmptyState } from './components/common';
 import { DownloadsProvider, useDownloads } from './hooks/useDownloads';
+import { AccountPage } from './pages/Account';
+import { AdminPage } from './pages/admin/Admin';
 import { DownloadsPage } from './pages/Downloads';
 import { InvitePage } from './pages/Invite';
 import { LibraryPage } from './pages/Library';
 import { LoginPage } from './pages/Login';
+import { ResetPasswordPage } from './pages/ResetPassword';
 import { TitlePage } from './pages/Title';
 
 export function App(): JSX.Element {
@@ -14,10 +17,13 @@ export function App(): JSX.Element {
     <Routes>
       <Route path="/login" element={<LoginPage />} />
       <Route path="/invite" element={<InvitePage />} />
+      <Route path="/reset" element={<ResetPasswordPage />} />
       <Route element={<ProtectedShell />}>
         <Route path="/" element={<LibraryPage />} />
         <Route path="/title/:postId" element={<TitlePage />} />
         <Route path="/downloads" element={<DownloadsPage />} />
+        <Route path="/account" element={<AccountPage />} />
+        <Route path="/admin" element={<AdminOnly><AdminPage /></AdminOnly>} />
       </Route>
       <Route path="*" element={<NotFound />} />
     </Routes>
@@ -53,6 +59,24 @@ function ProtectedShell(): JSX.Element {
   );
 }
 
+/**
+ * Admin-only route guard. The server refuses these endpoints anyway; this keeps
+ * a non-admin from landing on a page of failing requests.
+ */
+function AdminOnly({ children }: { children: JSX.Element }): JSX.Element {
+  const { user } = useAuth();
+  if (user?.role !== 'ADMIN') {
+    return (
+      <div className="page">
+        <EmptyState icon="🔒" title="Administrators only">
+          Ask an administrator if you need access to user management.
+        </EmptyState>
+      </div>
+    );
+  }
+  return children;
+}
+
 function Header(): JSX.Element {
   const { user, logout } = useAuth();
   const { activeCount } = useDownloads();
@@ -77,12 +101,19 @@ function Header(): JSX.Element {
           Downloads
           {activeCount > 0 ? <span className="header__badge">{activeCount}</span> : null}
         </NavLink>
+        {user?.role === 'ADMIN' ? (
+          <NavLink to="/admin" className={linkClass}>
+            Admin
+          </NavLink>
+        ) : null}
       </nav>
 
       <div className="header__spacer" />
 
       <div className="header__user">
-        <span>{user?.name}</span>
+        <NavLink to="/account" className={linkClass}>
+          {user?.name}
+        </NavLink>
         <button className="button button--ghost button--small" type="button" onClick={() => void logout()}>
           Sign out
         </button>

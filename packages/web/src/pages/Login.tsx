@@ -93,6 +93,13 @@ export function LoginPage(): JSX.Element {
         <p className="auth__footer">
           Have an invite code? <Link to="/invite">Create an account</Link>
         </p>
+        <p className="auth__footer" style={{ marginTop: 8 }}>
+          {/*
+            No mail server is configured, so there is no self-service reset.
+            An admin issues a one-time link instead.
+          */}
+          Forgotten your password? Ask an administrator to send you a reset link.
+        </p>
       </form>
     </div>
   );
